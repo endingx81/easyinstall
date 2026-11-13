@@ -400,7 +400,23 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                 Sleep(500);
 
                 // 1. 메인 실행 파일 등록 해제 명령 실행 (--unregister 지원 프로그램)
-                std::wstring mainExe = targetDir + L"\\EasyZip.exe";
+                std::wstring mainExe = targetDir + L"\\" + appName + L".exe";
+                if (!PathFileExistsW(mainExe.c_str())) {
+                    // 폴더 내 첫 번째 .exe (uninstall.exe 제외) 탐색
+                    WIN32_FIND_DATAW wfd;
+                    HANDLE hFind = FindFirstFileW((targetDir + L"\\*.exe").c_str(), &wfd);
+                    if (hFind != INVALID_HANDLE_VALUE) {
+                        do {
+                            if (_wcsicmp(wfd.cFileName, L"uninstall.exe") != 0 &&
+                                _wcsicmp(wfd.cFileName, L"easyinstall.exe") != 0) {
+                                mainExe = targetDir + L"\\" + wfd.cFileName;
+                                break;
+                            }
+                        } while (FindNextFileW(hFind, &wfd));
+                        FindClose(hFind);
+                    }
+                }
+
                 if (PathFileExistsW(mainExe.c_str())) {
                     std::wstring unregCmd = L"\"" + mainExe + L"\" --unregister";
                     STARTUPINFOW si = { sizeof(si) };
@@ -412,7 +428,7 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                     }
                 }
 
-                // 2. EasyZip 정적 셸 동사 및 셸 확장 레지스트리 키 완벽 삭제 (Fail-safe)
+                // 2. EasyZip / EasyPic 정적 셸 동사 및 셸 확장 레지스트리 키 완벽 삭제 (Fail-safe)
                 static const wchar_t* easyZipPurgeKeys[] = {
                     L"Software\\Classes\\Directory\\Background\\shell\\EasyZip.NewFolder",
                     L"Software\\Classes\\Directory\\shell\\EasyZip.NewFolder",
@@ -425,7 +441,12 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                     L"Software\\Classes\\EasyZip.Archive",
                     L"Software\\Classes\\CLSID\\{D8F2A385-4C3D-4B9F-8349-3A65C82A4D10}",
                     L"Software\\EasyZip",
-                    L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\EasyZip.exe"
+                    L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\EasyZip.exe",
+                    L"Software\\Classes\\SystemFileAssociations\\image\\ShellEx\\ContextMenuHandlers\\EasyPic",
+                    L"Software\\Classes\\SystemFileAssociations\\image\\shell\\EasyPic",
+                    L"Software\\Classes\\CLSID\\{C6362C0B-9764-4CE1-B34D-EA5970696301}",
+                    L"Software\\EasyPic",
+                    L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\EasyPic.exe"
                 };
                 for (const auto* k : easyZipPurgeKeys) {
                     RegDeleteTreeW(HKEY_CURRENT_USER, k);

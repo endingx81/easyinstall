@@ -299,7 +299,8 @@ static void updateWizardPage(HWND hDlg, WizardState* state) {
     int show4 = (state->currentPage == 4) ? SW_SHOW : SW_HIDE;
     ShowWindow(GetDlgItem(hDlg, IDC_STATIC_COMPLETE_TITLE), show4);
     ShowWindow(GetDlgItem(hDlg, IDC_STATIC_COMPLETE_DESC), show4);
-    ShowWindow(GetDlgItem(hDlg, IDC_CHK_LAUNCH_NOW), show4);
+    int showLaunch = (state->currentPage == 4 && state->meta.launchAfterInstall) ? SW_SHOW : SW_HIDE;
+    ShowWindow(GetDlgItem(hDlg, IDC_CHK_LAUNCH_NOW), showLaunch);
 
     // 잔상 및 컨트롤 겹침 방지 재도색
     InvalidateRect(hDlg, nullptr, TRUE);
@@ -645,20 +646,36 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
                     RegCloseKey(hBk);
                 }
             }
+        }
 
-            std::wstring regCmd = L"\"" + mainExePath + L"\" --register";
-            STARTUPINFOW si = { sizeof(si) };
-            PROCESS_INFORMATION pi = { 0 };
-            if (CreateProcessW(nullptr, const_cast<wchar_t*>(regCmd.c_str()), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, targetDir.c_str(), &si, &pi)) {
-                WaitForSingleObject(pi.hProcess, 5000);
-                CloseHandle(pi.hProcess);
-                CloseHandle(pi.hThread);
-            }
+        // 모든 프로그램에 대해 --register 자동 실행!
+        std::wstring regCmd = L"\"" + mainExePath + L"\" --register";
+        STARTUPINFOW si = { sizeof(si) };
+        PROCESS_INFORMATION pi = { 0 };
+        if (CreateProcessW(nullptr, const_cast<wchar_t*>(regCmd.c_str()), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, targetDir.c_str(), &si, &pi)) {
+            WaitForSingleObject(pi.hProcess, 5000);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
         }
     }
 
-    // 6. 셸 새로고침 알림 (탐색기를 끄지 않고 알림만 전송하여 우클릭 메뉴 즉각 반영)
-    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+    // 6. 셸 새로고침 및 탐색기 부드러운 자동 재시동 (셸 확장 즉각 반영)
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, nullptr, nullptr);
+
+    // 셸 확장을 사용하는 프로그램의 경우, 열려 있는 탐색기가 즉시 새 DLL을 로드하도록 부드러운 재시동 수행
+    HWND hTray = FindWindowW(L"Shell_TrayWnd", nullptr);
+    if (hTray) {
+        DWORD trayPid = 0;
+        GetWindowThreadProcessId(hTray, &trayPid);
+        PostMessageW(hTray, WM_USER + 436, 0, 0); // Graceful explorer exit (열린 창/설정 저장 후 정상 종료)
+        HANDLE hProc = OpenProcess(SYNCHRONIZE, FALSE, trayPid);
+        if (hProc) {
+            WaitForSingleObject(hProc, 1200);
+            CloseHandle(hProc);
+        }
+    }
+    ShellExecuteW(nullptr, L"open", L"explorer.exe", nullptr, nullptr, SW_SHOWNORMAL);
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, nullptr, nullptr);
 
     PostMessageW(hDlg, WM_INSTALL_PROGRESS, 100, reinterpret_cast<LPARAM>(_wcsdup(L"설치 완료")));
     state->installSuccess = true;
@@ -843,7 +860,7 @@ static INT_PTR CALLBACK WizardDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM
             } else if (state->currentPage == 4) {
                 // 완료 및 종료
                 bool launch = (IsDlgButtonChecked(hDlg, IDC_CHK_LAUNCH_NOW) == BST_CHECKED);
-                if (launch && state->installSuccess) {
+                if (launch && state->meta.launchAfterInstall && state->installSuccess) {
                     std::wstring mainExe = state->installPath + L"\\" + state->meta.mainExeName;
                     ShellExecuteW(nullptr, L"open", mainExe.c_str(), nullptr, state->installPath.c_str(), SW_SHOW);
                 }
