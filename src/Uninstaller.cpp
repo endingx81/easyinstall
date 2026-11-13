@@ -110,12 +110,29 @@ static void terminateProcessesInDir(const std::wstring& targetDir) {
             CloseHandle(hProc);
         }
     }
+
+    // 드라이버 서비스(WinDivert 등) 잔여 서비스 정리 (제거 시 .sys 드라이버 잠금 방지)
+    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (hSCM) {
+        const wchar_t* services[] = { L"WinDivert1.4", L"WinDivert", L"GoodbyeDPI" };
+        for (const wchar_t* name : services) {
+            SC_HANDLE hSvc = OpenServiceW(hSCM, name, SERVICE_STOP | DELETE);
+            if (hSvc) {
+                SERVICE_STATUS status;
+                ControlService(hSvc, SERVICE_CONTROL_STOP, &status);
+                DeleteService(hSvc);
+                CloseServiceHandle(hSvc);
+            }
+        }
+        CloseServiceHandle(hSCM);
+    }
+
     if (!pids.empty()) {
         Sleep(300);
     }
 }
 
-static bool safeDeleteFile(const std::wstring& filePath, int retries = 10, int delayMs = 150) {
+static bool safeDeleteFile(const std::wstring& filePath, int retries = 5, int delayMs = 50) {
     SetFileAttributesW(filePath.c_str(), FILE_ATTRIBUTE_NORMAL);
     for (int i = 0; i < retries; ++i) {
         if (DeleteFileW(filePath.c_str()) || GetLastError() == ERROR_FILE_NOT_FOUND) {
@@ -123,10 +140,20 @@ static bool safeDeleteFile(const std::wstring& filePath, int retries = 10, int d
         }
         Sleep(delayMs);
     }
+
+    // 파일이 프로세스(탐색기 등)에 잠겨있는 경우: .deleted로 리네임 후 시스템 재부팅 시 삭제 예약
+    std::wstring tempDel = filePath + L".deleted_" + std::to_wstring(GetTickCount64());
+    if (MoveFileExW(filePath.c_str(), tempDel.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+        MoveFileExW(tempDel.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
+        return true;
+    }
+
+    // 이름 변경도 안 될 경우 원본 파일 자체를 재부팅 시 삭제 예약
+    MoveFileExW(filePath.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
     return false;
 }
 
-static bool safeRemoveDirectory(const std::wstring& dirPath, int retries = 10, int delayMs = 150) {
+static bool safeRemoveDirectory(const std::wstring& dirPath, int retries = 5, int delayMs = 50) {
     SetFileAttributesW(dirPath.c_str(), FILE_ATTRIBUTE_NORMAL);
     for (int i = 0; i < retries; ++i) {
         if (RemoveDirectoryW(dirPath.c_str()) || GetLastError() == ERROR_FILE_NOT_FOUND) {
@@ -134,6 +161,8 @@ static bool safeRemoveDirectory(const std::wstring& dirPath, int retries = 10, i
         }
         Sleep(delayMs);
     }
+    // 잔여 파일 예약으로 인해 디렉터리가 즉시 삭제되지 않는 경우 디렉터리도 재부팅 시 삭제 예약
+    MoveFileExW(dirPath.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
     return false;
 }
 
@@ -212,6 +241,7 @@ static void removeShortcutsAndRegistry(const std::wstring& appName, EasyInstallS
 
 static INT_PTR CALLBACK UninstDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
     static PackageMeta s_meta;
+    static HFONT s_hTitleFont = nullptr;
 
     switch (msg) {
     case WM_INITDIALOG: {
@@ -223,6 +253,24 @@ static INT_PTR CALLBACK UninstDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM
         SetWindowTextW(hDlg, (s_meta.appName + L" 제거").c_str());
         SetDlgItemTextW(hDlg, IDC_STATIC_UNINST_TITLE, (s_meta.appName + L" 프로그램을 컴퓨터에서 완전히 제거하시겠습니까?").c_str());
         SendDlgItemMessageW(hDlg, IDC_PROGRESS_UNINSTALL, PBM_SETRANGE32, 0, 100);
+
+        // 12pt Bold 타이틀 폰트 생성 및 적용 (DPI 대응)
+        UINT dpi = 96;
+        typedef UINT(WINAPI* GetDpiForWindowProc)(HWND);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        if (hUser32) {
+            auto pGetDpi = reinterpret_cast<GetDpiForWindowProc>(GetProcAddress(hUser32, "GetDpiForWindow"));
+            if (pGetDpi) dpi = pGetDpi(hDlg);
+        }
+        int titleHeight = -MulDiv(11, dpi, 72);
+        s_hTitleFont = CreateFontW(
+            titleHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕"
+        );
+        if (s_hTitleFont) {
+            SendDlgItemMessageW(hDlg, IDC_STATIC_UNINST_TITLE, WM_SETFONT, reinterpret_cast<WPARAM>(s_hTitleFont), TRUE);
+        }
         return TRUE;
     }
 
@@ -298,6 +346,14 @@ static INT_PTR CALLBACK UninstDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM
         }
         break;
     }
+
+    case WM_DESTROY: {
+        if (s_hTitleFont) {
+            DeleteObject(s_hTitleFont);
+            s_hTitleFont = nullptr;
+        }
+        return TRUE;
+    }
     }
     return FALSE;
 }
@@ -343,17 +399,60 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                 }
                 Sleep(500);
 
-                // 설치 폴더 내 남아있는 모든 프로세스(워커, 백그라운드 프로세스 등) 일괄 강제 종료
-                terminateProcessesInDir(targetDir);
-                Sleep(300);
+                // 1. 메인 실행 파일 등록 해제 명령 실행 (--unregister 지원 프로그램)
+                std::wstring mainExe = targetDir + L"\\EasyZip.exe";
+                if (PathFileExistsW(mainExe.c_str())) {
+                    std::wstring unregCmd = L"\"" + mainExe + L"\" --unregister";
+                    STARTUPINFOW si = { sizeof(si) };
+                    PROCESS_INFORMATION pi = { 0 };
+                    if (CreateProcessW(nullptr, const_cast<wchar_t*>(unregCmd.c_str()), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, targetDir.c_str(), &si, &pi)) {
+                        WaitForSingleObject(pi.hProcess, 5000);
+                        CloseHandle(pi.hProcess);
+                        CloseHandle(pi.hThread);
+                    }
+                }
 
-                // 바로가기 및 레지스트리 제거
+                // 2. EasyZip 정적 셸 동사 및 셸 확장 레지스트리 키 완벽 삭제 (Fail-safe)
+                static const wchar_t* easyZipPurgeKeys[] = {
+                    L"Software\\Classes\\Directory\\Background\\shell\\EasyZip.NewFolder",
+                    L"Software\\Classes\\Directory\\shell\\EasyZip.NewFolder",
+                    L"Software\\Classes\\Directory\\Background\\shellex\\ContextMenuHandlers\\EasyZip",
+                    L"Software\\Classes\\Directory\\shellex\\ContextMenuHandlers\\EasyZip",
+                    L"Software\\Classes\\Folder\\shellex\\ContextMenuHandlers\\EasyZip",
+                    L"Software\\Classes\\*\\shell\\EasyZip.NewFolder",
+                    L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\EasyZip",
+                    L"Software\\Classes\\DesktopBackground\\shell\\EasyZip.NewFolder",
+                    L"Software\\Classes\\EasyZip.Archive",
+                    L"Software\\Classes\\CLSID\\{D8F2A385-4C3D-4B9F-8349-3A65C82A4D10}",
+                    L"Software\\EasyZip",
+                    L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\EasyZip.exe"
+                };
+                for (const auto* k : easyZipPurgeKeys) {
+                    RegDeleteTreeW(HKEY_CURRENT_USER, k);
+                }
+
+                // 2-1. Windows 기본 압축 풀기 메뉴 차단 해제 (Fail-safe 복원)
+                HKEY hBlockedKey = NULL;
+                if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Blocked", 0, KEY_WRITE, &hBlockedKey) == ERROR_SUCCESS) {
+                    RegDeleteValueW(hBlockedKey, L"{b8cdcb65-b1bf-4b42-9428-1dfdb7ee92af}");
+                    RegDeleteValueW(hBlockedKey, L"{EE07CEF5-3441-4CFB-870A-4002C724783A}");
+                    RegCloseKey(hBlockedKey);
+                }
+
+                // 3. 설치 폴더 내 남아있는 모든 프로세스(워커, 백그라운드 프로세스 등) 일괄 강제 종료
+                terminateProcessesInDir(targetDir);
+                Sleep(100);
+
+                // 4. 바로가기 및 레지스트리 제거
                 removeShortcutsAndRegistry(appName, scope);
 
-                // 설치 디렉터리 내 파일 제거
+                // 5. 설치 디렉터리 내 파일 제거 (탐색기 프로세스를 절대 강제 종료하지 않고 재부팅 삭제 예약 활용)
                 if (!targetDir.empty() && PathFileExistsW(targetDir.c_str())) {
                     deleteDirectoryRecursive(targetDir);
                 }
+
+                // 6. 셸 새로고침 알림 (탐색기 종료 없이 알림만 발행하여 우클릭 메뉴 즉각 갱신)
+                SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 
                 // 사용자 알림
                 MessageBoxW(nullptr, (appName + L" 프로그램이 컴퓨터에서 성공적으로 제거되었습니다.").c_str(), L"제거 완료", MB_OK | MB_ICONINFORMATION);

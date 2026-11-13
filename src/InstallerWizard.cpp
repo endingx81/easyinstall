@@ -82,7 +82,13 @@ static std::vector<DWORD> findRunningProcesses(const std::wstring& targetDir, co
             std::wstring curExe = pe.szExeFile;
             for (wchar_t& c : curExe) c = towlower(c);
 
-            // 관리자 권한 프로세스도 경로를 조회할 수 있도록 PROCESS_QUERY_LIMITED_INFORMATION 사용
+            // 1. 실행 파일명이 메인 exe와 동일한 경우 (어느 경로에서 실행 중이든 무조건 감지)
+            if (!lowerExeName.empty() && curExe == lowerExeName) {
+                pids.push_back(pe.th32ProcessID);
+                continue;
+            }
+
+            // 2. 관리자 권한 프로세스도 경로를 조회하여 대상 설치 디렉터리 내의 하위/워커 프로세스인지 확인
             HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe.th32ProcessID);
             if (hProc) {
                 wchar_t fullPath[MAX_PATH] = { 0 };
@@ -91,22 +97,45 @@ static std::vector<DWORD> findRunningProcesses(const std::wstring& targetDir, co
                     std::wstring lowerFullPath = fullPath;
                     for (wchar_t& c : lowerFullPath) c = towlower(c);
 
-                    // 대상 설치 디렉터리 내에 위치한 프로세스이면 (메인 exe, 서브 워커 등 모두 포함)
+                    // 대상 설치 디렉터리 내에 위치한 프로세스이면 (서브 워커 등 모두 포함)
                     if (!normTargetDir.empty() && lowerFullPath.find(normTargetDir) == 0) {
                         pids.push_back(pe.th32ProcessID);
                     }
-                } else if (!lowerExeName.empty() && curExe == lowerExeName) {
-                    // 권한 등으로 전체 경로 조회가 불가하더라도 메인 실행 파일명과 일치하면 포함
-                    pids.push_back(pe.th32ProcessID);
                 }
                 CloseHandle(hProc);
-            } else if (!lowerExeName.empty() && curExe == lowerExeName) {
-                pids.push_back(pe.th32ProcessID);
             }
         } while (Process32NextW(hSnap, &pe));
     }
     CloseHandle(hSnap);
     return pids;
+}
+
+// 드라이버 서비스(WinDivert 등) 잔여 서비스 정리 (재설치 시 .sys 드라이버 잠금 방지)
+static void stopDriverServices() {
+    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (!hSCM) {
+        hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
+    }
+    if (hSCM) {
+        const wchar_t* services[] = { L"WinDivert1.4", L"WinDivert", L"GoodbyeDPI" };
+        for (const wchar_t* name : services) {
+            SC_HANDLE hSvc = OpenServiceW(hSCM, name, SERVICE_STOP | DELETE | SERVICE_QUERY_STATUS);
+            if (hSvc) {
+                SERVICE_STATUS status = { 0 };
+                ControlService(hSvc, SERVICE_CONTROL_STOP, &status);
+                DeleteService(hSvc);
+                for (int w = 0; w < 15; ++w) {
+                    if (QueryServiceStatus(hSvc, &status)) {
+                        if (status.dwCurrentState == SERVICE_STOPPED) break;
+                    }
+                    Sleep(100);
+                }
+                CloseServiceHandle(hSvc);
+            }
+        }
+        CloseServiceHandle(hSCM);
+    }
+    Sleep(200);
 }
 
 // 프로세스 안전 종료 (WM_CLOSE 정상 종료 시도 후 미종료 시 TerminateProcess 강제 종료)
@@ -132,6 +161,9 @@ static bool terminateTargetProcesses(const std::vector<DWORD>& pids) {
             CloseHandle(hProc);
         }
     }
+
+    // 드라이버 서비스(WinDivert 등) 잔여 서비스 정리 (재설치 시 .sys 드라이버 잠금 방지)
+    stopDriverServices();
 
     Sleep(300);
     return true;
@@ -237,6 +269,7 @@ struct WizardState {
     bool launchNow;
     bool installSuccess;
     std::wstring installError;
+    HFONT hTitleFont = nullptr;
 };
 
 static void updateWizardPage(HWND hDlg, WizardState* state) {
@@ -358,6 +391,9 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
         return;
     }
 
+    // 설치 시작 전 잔여 드라이버 서비스 사전 정리 (WinDivert64.sys 등 잠금 방지)
+    stopDriverServices();
+
     mz_uint numFiles = mz_zip_reader_get_num_files(&zip);
     for (mz_uint i = 0; i < numFiles; ++i) {
         mz_zip_archive_file_stat stat;
@@ -421,14 +457,47 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
             HANDLE hOut = CreateFileW(outFilePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
             if (hOut == INVALID_HANDLE_VALUE) {
                 DWORD dwErr = GetLastError();
-                if (pBuf) mz_free(pBuf);
-                mz_zip_reader_end(&zip);
-                fclose(pFile);
-                state->installSuccess = false;
-                state->installError = L"파일 생성 실패 (오류 코드 " + std::to_wstring(dwErr) + L"):\n" + outFilePath;
-                PostMessageW(hDlg, WM_INSTALL_COMPLETE, 0, 0);
-                CoUninitialize();
-                return;
+                if (dwErr == ERROR_SHARING_VIOLATION || dwErr == ERROR_ACCESS_DENIED) {
+                    stopDriverServices();
+                    Sleep(300);
+                    hOut = CreateFileW(outFilePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+                    if (hOut == INVALID_HANDLE_VALUE) {
+                        dwErr = GetLastError();
+                    }
+                }
+
+                // 실행 중/잠금 상태 파일(ERROR_SHARING_VIOLATION / ERROR_ACCESS_DENIED) 우회:
+                // 탐색기 프로세스를 절대 강제 종료하지 않고, 기존 파일을 .old_임시명으로 안전하게 이름 변경 후 신규 생성
+                if (hOut == INVALID_HANDLE_VALUE && (dwErr == ERROR_SHARING_VIOLATION || dwErr == ERROR_ACCESS_DENIED)) {
+                    SetFileAttributesW(outFilePath.c_str(), FILE_ATTRIBUTE_NORMAL);
+                    std::wstring tempOld = outFilePath + L".old_" + std::to_wstring(GetTickCount64());
+                    if (MoveFileExW(outFilePath.c_str(), tempOld.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+                        MoveFileExW(tempOld.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
+                        hOut = CreateFileW(outFilePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+                    } else {
+                        wchar_t tempDir[MAX_PATH] = { 0 };
+                        GetTempPathW(MAX_PATH, tempDir);
+                        std::wstring tempFallback = std::wstring(tempDir) + L"easyinstall_old_" + std::to_wstring(GetTickCount64()) + L".tmp";
+                        if (MoveFileExW(outFilePath.c_str(), tempFallback.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+                            MoveFileExW(tempFallback.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
+                            hOut = CreateFileW(outFilePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+                        }
+                    }
+                    if (hOut != INVALID_HANDLE_VALUE) {
+                        dwErr = ERROR_SUCCESS;
+                    }
+                }
+
+                if (hOut == INVALID_HANDLE_VALUE) {
+                    if (pBuf) mz_free(pBuf);
+                    mz_zip_reader_end(&zip);
+                    fclose(pFile);
+                    state->installSuccess = false;
+                    state->installError = L"파일 생성 실패 (오류 코드 " + std::to_wstring(dwErr) + L"):\n" + outFilePath;
+                    PostMessageW(hDlg, WM_INSTALL_COMPLETE, 0, 0);
+                    CoUninitialize();
+                    return;
+                }
             }
 
             if (pBuf && uncompSize > 0) {
@@ -556,7 +625,23 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
         RegCloseKey(hKey);
     }
 
-    // 5. 셸 새로고침 알림
+    // 5. 메인 실행 파일 등록 명령 자동 실행 (--register 지원 프로그램)
+    if (PathFileExistsW(mainExePath.c_str())) {
+        std::wstring lowerMain = state->meta.mainExeName;
+        for (auto& ch : lowerMain) ch = towlower(ch);
+        if (lowerMain == L"easyzip.exe") {
+            std::wstring regCmd = L"\"" + mainExePath + L"\" --register";
+            STARTUPINFOW si = { sizeof(si) };
+            PROCESS_INFORMATION pi = { 0 };
+            if (CreateProcessW(nullptr, const_cast<wchar_t*>(regCmd.c_str()), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, targetDir.c_str(), &si, &pi)) {
+                WaitForSingleObject(pi.hProcess, 5000);
+                CloseHandle(pi.hProcess);
+                CloseHandle(pi.hThread);
+            }
+        }
+    }
+
+    // 6. 셸 새로고침 알림 (탐색기를 끄지 않고 알림만 전송하여 우클릭 메뉴 즉각 반영)
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 
     PostMessageW(hDlg, WM_INSTALL_PROGRESS, 100, reinterpret_cast<LPARAM>(_wcsdup(L"설치 완료")));
@@ -627,6 +712,26 @@ static INT_PTR CALLBACK WizardDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM
 
         // 프로그레스바 범위 설정
         SendDlgItemMessageW(hDlg, IDC_PROGRESS_INSTALL, PBM_SETRANGE32, 0, 100);
+
+        // 대제목 강조용 13pt Bold 맑은 고딕 폰트 생성 및 적용 (DPI 자동 보정)
+        UINT dpi = 96;
+        typedef UINT(WINAPI* GetDpiForWindowProc)(HWND);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        if (hUser32) {
+            auto pGetDpi = reinterpret_cast<GetDpiForWindowProc>(GetProcAddress(hUser32, "GetDpiForWindow"));
+            if (pGetDpi) dpi = pGetDpi(hDlg);
+        }
+        int titleHeight = -MulDiv(11, dpi, 72);
+        state->hTitleFont = CreateFontW(
+            titleHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕"
+        );
+        if (state->hTitleFont) {
+            SendDlgItemMessageW(hDlg, IDC_WIZARD_HEADER_TITLE, WM_SETFONT, reinterpret_cast<WPARAM>(state->hTitleFont), TRUE);
+            SendDlgItemMessageW(hDlg, IDC_STATIC_WELCOME_TITLE, WM_SETFONT, reinterpret_cast<WPARAM>(state->hTitleFont), TRUE);
+            SendDlgItemMessageW(hDlg, IDC_STATIC_COMPLETE_TITLE, WM_SETFONT, reinterpret_cast<WPARAM>(state->hTitleFont), TRUE);
+        }
 
         state->currentPage = 1;
         updateWizardPage(hDlg, state);
@@ -766,6 +871,14 @@ static INT_PTR CALLBACK WizardDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM
         }
         return TRUE;
     }
+
+    case WM_DESTROY: {
+        if (state && state->hTitleFont) {
+            DeleteObject(state->hTitleFont);
+            state->hTitleFont = nullptr;
+        }
+        return TRUE;
+    }
     }
     return FALSE;
 }
@@ -779,6 +892,7 @@ INT_PTR InstallerWizard::showWizard(HINSTANCE hInstance, HWND hParent, const Pac
     state.createStartMenu = meta.createStartMenuShortcut;
     state.launchNow = meta.launchAfterInstall;
     state.installSuccess = false;
+    state.hTitleFont = nullptr;
 
     return DialogBoxParamW(hInstance, MAKEINTRESOURCEW(IDD_WIZARD_DIALOG), hParent, WizardDlgProc, reinterpret_cast<LPARAM>(&state));
 }

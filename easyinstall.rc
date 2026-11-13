@@ -23,50 +23,68 @@ IDI_SMALL               ICON                    "small.ico"
 //
 // Dialog: IDD_BUILDER_DIALOG (EasyInstall 패키징 빌더)
 //
-IDD_BUILDER_DIALOG DIALOGEX 0, 0, 360, 300
+IDD_BUILDER_DIALOG DIALOGEX 0, 0, 400, 272
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
 CAPTION "EasyInstall - 설치 프로그램 생성기"
-FONT 9, "MS Shell Dlg", 400, 0, 0x1
+FONT 10, "맑은 고딕", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "1. 원본 대상 프로그램 (파일 또는 폴더)", IDC_STATIC, 10, 10, 340, 52
-    LTEXT           "대상 경로:", IDC_STATIC, 18, 25, 45, 8, SS_LEFTNOWORDWRAP
-    EDITTEXT        IDC_EDIT_INPUT, 65, 23, 220, 14, ES_AUTOHSCROLL
-    PUSHBUTTON      "찾아보기...", IDC_BTN_BROWSE_INPUT, 290, 23, 52, 14
-    LTEXT           "메인 실행 파일:", IDC_STATIC, 18, 43, 45, 8, SS_LEFTNOWORDWRAP
-    EDITTEXT        IDC_EDIT_MAIN_EXE, 65, 41, 160, 14, ES_AUTOHSCROLL
-    LTEXT           "(예: app.exe)", IDC_STATIC, 230, 43, 60, 8, SS_LEFTNOWORDWRAP
+    GROUPBOX        "1. 원본 대상 프로그램 (파일 또는 폴더)", IDC_STATIC, 10, 10, 380, 52
+    LTEXT           "대상 경로:", IDC_STATIC, 18, 25, 54, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_INPUT, 76, 23, 250, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "찾아보기...", IDC_BTN_BROWSE_INPUT, 332, 23, 50, 14
+    LTEXT           "메인 실행 파일:", IDC_STATIC, 18, 43, 56, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_MAIN_EXE, 76, 41, 170, 14, ES_AUTOHSCROLL
+    LTEXT           "(예: app.exe)", IDC_STATIC, 252, 43, 60, 8, SS_LEFTNOWORDWRAP
 
     GROUPBOX        "2. 프로그램 메타데이터 및 기본 옵션", IDC_STATIC, 10, 68, 340, 88
-    LTEXT           "프로그램명:", IDC_STATIC, 18, 83, 45, 8, SS_LEFTNOWORDWRAP
-    EDITTEXT        IDC_EDIT_APP_NAME, 65, 81, 110, 14, ES_AUTOHSCROLL
+    LTEXT           "프로그램명:", IDC_STATIC, 18, 83, 52, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_APP_NAME, 74, 81, 104, 14, ES_AUTOHSCROLL
     LTEXT           "버전:", IDC_STATIC, 185, 83, 25, 8, SS_LEFTNOWORDWRAP
     EDITTEXT        IDC_EDIT_APP_VERSION, 215, 81, 125, 14, ES_AUTOHSCROLL
-    LTEXT           "게시자/제작:", IDC_STATIC, 18, 101, 45, 8, SS_LEFTNOWORDWRAP
-    EDITTEXT        IDC_EDIT_PUBLISHER, 65, 99, 110, 14, ES_AUTOHSCROLL
+    LTEXT           "게시자/제작:", IDC_STATIC, 18, 101, 54, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_PUBLISHER, 74, 99, 104, 14, ES_AUTOHSCROLL
     LTEXT           "설치 위치:", IDC_STATIC, 185, 101, 28, 8, SS_LEFTNOWORDWRAP
     COMBOBOX        IDC_COMBO_SCOPE, 215, 99, 125, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "2. 프로그램 메타데이터 및 기본 옵션", IDC_STATIC, 10, 68, 380, 88
+    LTEXT           "프로그램명:", IDC_STATIC, 18, 83, 56, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_APP_NAME, 76, 81, 105, 14, ES_AUTOHSCROLL
+    LTEXT           "버전:", IDC_STATIC, 190, 83, 45, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_APP_VERSION, 238, 81, 144, 14, ES_AUTOHSCROLL
+    LTEXT           "게시자/제작:", IDC_STATIC, 18, 101, 56, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_PUBLISHER, 76, 99, 105, 14, ES_AUTOHSCROLL
+    LTEXT           "설치 위치:", IDC_STATIC, 190, 101, 45, 8, SS_LEFTNOWORDWRAP
+    COMBOBOX        IDC_COMBO_SCOPE, 238, 99, 144, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
     CONTROL         "바탕화면 바로가기 생성 (기본 체크)", IDC_CHK_DESKTOP, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 18, 120, 150, 10
     CONTROL         "시작 메뉴(프로그램) 등록 (기본 체크)", IDC_CHK_STARTMENU, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 18, 136, 150, 10
+    CONTROL         "바탕화면 바로가기 생성 (기본 체크)", IDC_CHK_DESKTOP, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 18, 120, 160, 10
+    CONTROL         "시작 메뉴(프로그램) 등록 (기본 체크)", IDC_CHK_STARTMENU, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 18, 136, 160, 10
 
     GROUPBOX        "3. 출력 설치 파일 (Setup.exe)", IDC_STATIC, 10, 162, 340, 48
-    LTEXT           "출력 경로:", IDC_STATIC, 18, 177, 45, 8, SS_LEFTNOWORDWRAP
-    EDITTEXT        IDC_EDIT_OUTPUT, 65, 175, 220, 14, ES_AUTOHSCROLL
+    LTEXT           "출력 경로:", IDC_STATIC, 18, 177, 52, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_OUTPUT, 74, 175, 211, 14, ES_AUTOHSCROLL
     PUSHBUTTON      "찾아보기...", IDC_BTN_BROWSE_OUTPUT, 290, 175, 52, 14
     CONTROL         "", IDC_PROGRESS_BUILD, "msctls_progress32", WS_BORDER, 18, 193, 324, 10
+    GROUPBOX        "3. 출력 설치 파일 (Setup.exe)", IDC_STATIC, 10, 162, 380, 48
+    LTEXT           "출력 경로:", IDC_STATIC, 18, 177, 54, 8, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_OUTPUT, 76, 175, 250, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "찾아보기...", IDC_BTN_BROWSE_OUTPUT, 332, 175, 50, 14
+    CONTROL         "", IDC_PROGRESS_BUILD, "msctls_progress32", WS_BORDER, 18, 193, 364, 10
 
-    LTEXT           "준비됨", IDC_STATIC_STATUS, 12, 218, 336, 12, SS_LEFTNOWORDWRAP
-    DEFPUSHBUTTON   "설치 프로그램 생성 (Build Setup.exe)", IDC_BTN_BUILD, 100, 240, 160, 24
+    LTEXT           "준비됨", IDC_STATIC_STATUS, 12, 216, 336, 12, SS_LEFTNOWORDWRAP
+    DEFPUSHBUTTON   "설치 프로그램 생성 (Build Setup.exe)", IDC_BTN_BUILD, 95, 235, 170, 24
+    LTEXT           "준비됨", IDC_STATIC_STATUS, 12, 216, 376, 12, SS_LEFTNOWORDWRAP
+    DEFPUSHBUTTON   "설치 프로그램 생성 (Build Setup.exe)", IDC_BTN_BUILD, 110, 235, 180, 24
 END
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Dialog: IDD_WIZARD_DIALOG (설치 마법사 Setup.exe)
 //
-IDD_WIZARD_DIALOG DIALOGEX 0, 0, 330, 230
+IDD_WIZARD_DIALOG DIALOGEX 0, 0, 330, 192
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "프로그램 설치 마법사"
-FONT 9, "MS Shell Dlg", 400, 0, 0x1
+FONT 10, "맑은 고딕", 400, 0, 0x1
 BEGIN
     // 헤더 영역
     CONTROL         "", IDC_STATIC, "Static", SS_ETCHEDHORZ, 0, 42, 330, 1
@@ -75,34 +93,34 @@ BEGIN
     ICON            IDI_EASYINSTALL, IDC_STATIC_WIZARD_ICON, 290, 10, 20, 20
 
     // 1단계 (환영) 컨트롤
-    LTEXT           "프로그램 설치를 시작합니다.", IDC_STATIC_WELCOME_TITLE, 20, 60, 290, 18, SS_LEFTNOWORDWRAP
-    LTEXT           "본 마법사는 사용자 컴퓨터에 프로그램을 안전하게 설치합니다.\n\n계속하려면 [다음] 단추를 누르십시오.", IDC_STATIC_WELCOME_DESC, 20, 85, 290, 50
+    LTEXT           "프로그램 설치를 시작합니다.", IDC_STATIC_WELCOME_TITLE, 20, 56, 290, 18, SS_LEFTNOWORDWRAP
+    LTEXT           "본 마법사는 사용자 컴퓨터에 프로그램을 안전하게 설치합니다.\n\n계속하려면 [다음] 단추를 누르십시오.", IDC_STATIC_WELCOME_DESC, 20, 80, 290, 50
 
     // 2단계 (경로 및 옵션 선택) 컨트롤
-    LTEXT           "프로그램을 설치할 대상 폴더를 선택하십시오.", IDC_STATIC_PATH_LABEL, 20, 52, 290, 10, SS_LEFTNOWORDWRAP
-    EDITTEXT        IDC_EDIT_INSTALL_PATH, 20, 66, 230, 14, ES_AUTOHSCROLL
-    PUSHBUTTON      "찾아보기...", IDC_BTN_BROWSE_PATH, 255, 66, 55, 14
-    LTEXT           "필요한 디스크 공간: 계산 중...", IDC_STATIC_SPACE_REQ, 20, 86, 140, 10, SS_LEFTNOWORDWRAP
-    LTEXT           "사용 가능 디스크 공간: 계산 중...", IDC_STATIC_SPACE_AVAIL, 170, 86, 140, 10, SS_LEFTNOWORDWRAP
-    GROUPBOX        "바로가기 및 추가 작업 선택", IDC_GRP_OPTIONS, 15, 105, 300, 52
-    CONTROL         "바탕화면에 바로가기 만들기", IDC_CHK_OPT_DESKTOP, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 25, 120, 180, 12
-    CONTROL         "시작 메뉴(프로그램 목록)에 등록하기", IDC_CHK_OPT_STARTMENU, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 25, 138, 180, 12
+    LTEXT           "프로그램을 설치할 대상 폴더를 선택하십시오.", IDC_STATIC_PATH_LABEL, 20, 50, 290, 10, SS_LEFTNOWORDWRAP
+    EDITTEXT        IDC_EDIT_INSTALL_PATH, 20, 63, 230, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "찾아보기...", IDC_BTN_BROWSE_PATH, 255, 63, 55, 14
+    LTEXT           "필요한 디스크 공간: 계산 중...", IDC_STATIC_SPACE_REQ, 20, 81, 140, 10, SS_LEFTNOWORDWRAP
+    LTEXT           "사용 가능 디스크 공간: 계산 중...", IDC_STATIC_SPACE_AVAIL, 170, 81, 140, 10, SS_LEFTNOWORDWRAP
+    GROUPBOX        "바로가기 및 추가 작업 선택", IDC_GRP_OPTIONS, 15, 96, 300, 54
+    CONTROL         "바탕화면에 바로가기 만들기", IDC_CHK_OPT_DESKTOP, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 25, 111, 180, 12
+    CONTROL         "시작 메뉴(프로그램 목록)에 등록하기", IDC_CHK_OPT_STARTMENU, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 25, 129, 180, 12
 
     // 3단계 (진행률) 컨트롤
-    LTEXT           "파일을 복사하고 시스템 설정을 구성하는 중입니다...", IDC_STATIC_INSTALLING_MSG, 20, 65, 290, 12, SS_LEFTNOWORDWRAP
-    CONTROL         "", IDC_PROGRESS_INSTALL, "msctls_progress32", WS_BORDER, 20, 85, 290, 14
-    LTEXT           "준비 중...", IDC_STATIC_INSTALL_DETAIL, 20, 105, 290, 14, SS_LEFTNOWORDWRAP
+    LTEXT           "파일을 복사하고 시스템 설정을 구성하는 중입니다...", IDC_STATIC_INSTALLING_MSG, 20, 60, 290, 12, SS_LEFTNOWORDWRAP
+    CONTROL         "", IDC_PROGRESS_INSTALL, "msctls_progress32", WS_BORDER, 20, 80, 290, 14
+    LTEXT           "준비 중...", IDC_STATIC_INSTALL_DETAIL, 20, 102, 290, 14, SS_LEFTNOWORDWRAP
 
     // 4단계 (완료) 컨트롤
-    LTEXT           "설치가 성공적으로 완료되었습니다!", IDC_STATIC_COMPLETE_TITLE, 20, 65, 290, 18, SS_LEFTNOWORDWRAP
-    LTEXT           "프로그램이 컴퓨터에 정상적으로 설치되었습니다.\n설치 마법사를 마치려면 [완료] 단추를 클릭하십시오.", IDC_STATIC_COMPLETE_DESC, 20, 90, 290, 35
-    CONTROL         "지금 프로그램 실행하기", IDC_CHK_LAUNCH_NOW, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 20, 135, 180, 14
+    LTEXT           "설치가 성공적으로 완료되었습니다!", IDC_STATIC_COMPLETE_TITLE, 20, 56, 290, 18, SS_LEFTNOWORDWRAP
+    LTEXT           "프로그램이 컴퓨터에 정상적으로 설치되었습니다.\n설치 마법사를 마치려면 [완료] 단추를 클릭하십시오.", IDC_STATIC_COMPLETE_DESC, 20, 80, 290, 35
+    CONTROL         "지금 프로그램 실행하기", IDC_CHK_LAUNCH_NOW, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 20, 125, 180, 14
 
     // 하단 공통 버튼 영역
-    CONTROL         "", IDC_STATIC, "Static", SS_ETCHEDHORZ, 0, 195, 330, 1
-    PUSHBUTTON      "< 이전(B)", IDC_BTN_BACK, 145, 205, 52, 16
-    DEFPUSHBUTTON   "다음(N) >", IDC_BTN_NEXT, 205, 205, 55, 16
-    PUSHBUTTON      "취소", IDC_BTN_CANCEL, 268, 205, 52, 16
+    CONTROL         "", IDC_STATIC, "Static", SS_ETCHEDHORZ, 0, 160, 330, 1
+    PUSHBUTTON      "< 이전(B)", IDC_BTN_BACK, 145, 168, 52, 16
+    DEFPUSHBUTTON   "다음(N) >", IDC_BTN_NEXT, 205, 168, 55, 16
+    PUSHBUTTON      "취소", IDC_BTN_CANCEL, 268, 168, 52, 16
 END
 
 /////////////////////////////////////////////////////////////////////////////
@@ -112,7 +130,7 @@ END
 IDD_UNINSTALL_DIALOG DIALOGEX 0, 0, 280, 140
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "프로그램 제거 (Uninstall)"
-FONT 9, "MS Shell Dlg", 400, 0, 0x1
+FONT 10, "맑은 고딕", 400, 0, 0x1
 BEGIN
     ICON            IDI_EASYINSTALL, IDC_STATIC, 15, 15, 20, 20
     LTEXT           "프로그램을 컴퓨터에서 완전히 제거하시겠습니까?", IDC_STATIC_UNINST_TITLE, 45, 15, 220, 14, SS_LEFTNOWORDWRAP
@@ -131,8 +149,10 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,4,0
- PRODUCTVERSION 1,0,4,0
+ FILEVERSION 1,0,8,0
+ PRODUCTVERSION 1,0,8,0
+ FILEVERSION 1,0,9,0
+ PRODUCTVERSION 1,0,9,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -149,12 +169,14 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "purestory"
             VALUE "FileDescription", "EasyInstall - 윈도우 설치 프로그램 생성기"
-            VALUE "FileVersion", "1.0.4.0"
+            VALUE "FileVersion", "1.0.8.0"
+            VALUE "FileVersion", "1.0.9.0"
             VALUE "InternalName", "easyinstall.exe"
             VALUE "LegalCopyright", "Copyright (C) 2026 purestory. All rights reserved."
             VALUE "OriginalFilename", "easyinstall.exe"
             VALUE "ProductName", "EasyInstall"
-            VALUE "ProductVersion", "1.0.4.0"
+            VALUE "ProductVersion", "1.0.8.0"
+            VALUE "ProductVersion", "1.0.9.0"
         END
     END
     BLOCK "VarFileInfo"
