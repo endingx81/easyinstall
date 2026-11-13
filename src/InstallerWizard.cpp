@@ -659,22 +659,7 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
         }
     }
 
-    // 6. 셸 새로고침 및 탐색기 부드러운 자동 재시동 (셸 확장 즉각 반영)
-    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, nullptr, nullptr);
-
-    // 셸 확장을 사용하는 프로그램의 경우, 열려 있는 탐색기가 즉시 새 DLL을 로드하도록 부드러운 재시동 수행
-    HWND hTray = FindWindowW(L"Shell_TrayWnd", nullptr);
-    if (hTray) {
-        DWORD trayPid = 0;
-        GetWindowThreadProcessId(hTray, &trayPid);
-        PostMessageW(hTray, WM_USER + 436, 0, 0); // Graceful explorer exit (열린 창/설정 저장 후 정상 종료)
-        HANDLE hProc = OpenProcess(SYNCHRONIZE, FALSE, trayPid);
-        if (hProc) {
-            WaitForSingleObject(hProc, 1200);
-            CloseHandle(hProc);
-        }
-    }
-    ShellExecuteW(nullptr, L"open", L"explorer.exe", nullptr, nullptr, SW_SHOWNORMAL);
+    // 6. 셸 새로고침 알림 (탐색기 프로세스를 절대 종료하지 않고 안전하게 알림만 전송)
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSHNOWAIT, nullptr, nullptr);
 
     PostMessageW(hDlg, WM_INSTALL_PROGRESS, 100, reinterpret_cast<LPARAM>(_wcsdup(L"설치 완료")));
