@@ -431,12 +431,20 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                     RegDeleteTreeW(HKEY_CURRENT_USER, k);
                 }
 
-                // 2-1. Windows 기본 압축 풀기 메뉴 차단 해제 (Fail-safe 복원)
-                HKEY hBlockedKey = NULL;
-                if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Blocked", 0, KEY_WRITE, &hBlockedKey) == ERROR_SUCCESS) {
-                    RegDeleteValueW(hBlockedKey, L"{b8cdcb65-b1bf-4b42-9428-1dfdb7ee92af}");
-                    RegDeleteValueW(hBlockedKey, L"{EE07CEF5-3441-4CFB-870A-4002C724783A}");
-                    RegCloseKey(hBlockedKey);
+                // 2-1. Windows 기본 압축 풀기 메뉴 차단 해제 (Fail-safe 복원: HKLM + HKCU)
+                static const wchar_t* unblockClsids[] = {
+                    L"{b8cdcb65-b1bf-4b42-9428-1dfdb7ee92af}",
+                    L"{EE07CEF5-3441-4CFB-870A-4002C724783A}"
+                };
+                const HKEY unblockRoots[] = { HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER };
+                for (HKEY r : unblockRoots) {
+                    HKEY hBlockedKey = NULL;
+                    if (RegOpenKeyExW(r, L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Blocked", 0, KEY_WRITE, &hBlockedKey) == ERROR_SUCCESS) {
+                        for (const auto* clsid : unblockClsids) {
+                            RegDeleteValueW(hBlockedKey, clsid);
+                        }
+                        RegCloseKey(hBlockedKey);
+                    }
                 }
 
                 // 3. 설치 폴더 내 남아있는 모든 프로세스(워커, 백그라운드 프로세스 등) 일괄 강제 종료

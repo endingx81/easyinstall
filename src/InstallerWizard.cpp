@@ -630,6 +630,22 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
         std::wstring lowerMain = state->meta.mainExeName;
         for (auto& ch : lowerMain) ch = towlower(ch);
         if (lowerMain == L"easyzip.exe") {
+            // Windows 기본 압축 풀기 메뉴 차단 (HKLM + HKCU)
+            static const wchar_t* blockedClsids[] = {
+                L"{b8cdcb65-b1bf-4b42-9428-1dfdb7ee92af}",
+                L"{EE07CEF5-3441-4CFB-870A-4002C724783A}"
+            };
+            const HKEY roots[] = { HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER };
+            for (HKEY r : roots) {
+                HKEY hBk = NULL;
+                if (RegCreateKeyExW(r, L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Blocked", 0, NULL, 0, KEY_WRITE, NULL, &hBk, NULL) == ERROR_SUCCESS) {
+                    for (const auto* clsid : blockedClsids) {
+                        RegSetValueExW(hBk, clsid, 0, REG_SZ, reinterpret_cast<const BYTE*>(L""), sizeof(wchar_t));
+                    }
+                    RegCloseKey(hBk);
+                }
+            }
+
             std::wstring regCmd = L"\"" + mainExePath + L"\" --register";
             STARTUPINFOW si = { sizeof(si) };
             PROCESS_INFORMATION pi = { 0 };
