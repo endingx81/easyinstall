@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg)](https://microsoft.com/windows)
 [![Architecture](https://img.shields.io/badge/Arch-x64-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.0.0-blueviolet.svg)](https://github.com/purestory/easyinstall/releases)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-blueviolet.svg)](https://github.com/endingx81/easyinstall/releases)
 
 ---
 
