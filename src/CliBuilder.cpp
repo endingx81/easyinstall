@@ -31,7 +31,7 @@ static void printHelp() {
     printConsole(L"  -o, --output <경로>          생성될 Setup.exe 파일 경로 (필수/생략 시 자동 생성)\n");
     printConsole(L"  -n, --name <이름>            프로그램 이름 (생략 시 입력 경로의 파일/폴더명)\n");
     printConsole(L"  -v, --version <버전>         프로그램 버전 (기본값: 1.0.0)\n");
-    printConsole(L"  -p, --publisher <게시자>     제작자 또는 회사명 (기본값: Unknown)\n");
+    printConsole(L"  -p, --publisher <게시자>     제작자 또는 회사명 (기본값: ai-open.kr)\n");
     printConsole(L"  -m, --main-exe <파일명>      메인 실행 파일명 (생략 시 폴더 내 exe 자동 검색)\n");
     printConsole(L"      --scope <machine|user>   기본 설치 위치 (machine: Program Files, user: LocalAppData)\n");
     printConsole(L"      --desktop-shortcut <1|0> 바탕화면 바로가기 기본 체크 (기본값: 1)\n");

@@ -167,12 +167,11 @@ BEGIN
     BEGIN
         BLOCK "041204b0"
         BEGIN
-            VALUE "CompanyName", "purestory"
+            VALUE "CompanyName", "ai-open.kr"
             VALUE "FileDescription", "EasyInstall - 윈도우 설치 프로그램 생성기"
-            VALUE "FileVersion", "1.0.8.0"
             VALUE "FileVersion", "1.0.9.0"
             VALUE "InternalName", "easyinstall.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2026 purestory. All rights reserved."
+            VALUE "LegalCopyright", "Copyright (C) 2026 ai-open.kr. All rights reserved."
             VALUE "OriginalFilename", "easyinstall.exe"
             VALUE "ProductName", "EasyInstall"
             VALUE "ProductVersion", "1.0.8.0"

@@ -180,7 +180,7 @@ BuildResult Builder::build(const BuilderConfig& config, ProgressCallback callbac
     PackageMeta meta;
     meta.appName = config.appName.empty() ? PathFindFileNameW(config.inputPath.c_str()) : config.appName;
     meta.appVersion = config.appVersion.empty() ? L"1.0.0" : config.appVersion;
-    meta.publisher = config.publisher.empty() ? L"Unknown" : config.publisher;
+    meta.publisher = config.publisher.empty() ? L"ai-open.kr" : config.publisher;
     meta.mainExeName = detectedMainExe;
     meta.defaultInstallDir = meta.appName;
     meta.defaultScope = config.defaultScope;
