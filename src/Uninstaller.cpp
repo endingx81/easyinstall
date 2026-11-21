@@ -432,10 +432,12 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                 static const wchar_t* easyZipPurgeKeys[] = {
                     L"Software\\Classes\\Directory\\Background\\shell\\EasyZip.NewFolder",
                     L"Software\\Classes\\Directory\\shell\\EasyZip.NewFolder",
+                    L"Software\\Classes\\Directory\\shell\\EasyZip.Compress",
                     L"Software\\Classes\\Directory\\Background\\shellex\\ContextMenuHandlers\\EasyZip",
                     L"Software\\Classes\\Directory\\shellex\\ContextMenuHandlers\\EasyZip",
                     L"Software\\Classes\\Folder\\shellex\\ContextMenuHandlers\\EasyZip",
                     L"Software\\Classes\\*\\shell\\EasyZip.NewFolder",
+                    L"Software\\Classes\\*\\shell\\EasyZip.Compress",
                     L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\EasyZip",
                     L"Software\\Classes\\DesktopBackground\\shell\\EasyZip.NewFolder",
                     L"Software\\Classes\\EasyZip.Archive",
@@ -450,9 +452,10 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                 };
                 for (const auto* k : easyZipPurgeKeys) {
                     RegDeleteTreeW(HKEY_CURRENT_USER, k);
+                    RegDeleteTreeW(HKEY_LOCAL_MACHINE, k);
                 }
 
-                // 2-1. Windows 기본 압축 풀기 메뉴 차단 해제 (Fail-safe 복원: HKLM + HKCU)
+                // 2-1. Windows 기본 압축 풀기 메뉴 차단 해제 및 EasyZip Approved 제거 (Fail-safe 복원: HKLM + HKCU)
                 static const wchar_t* unblockClsids[] = {
                     L"{b8cdcb65-b1bf-4b42-9428-1dfdb7ee92af}",
                     L"{EE07CEF5-3441-4CFB-870A-4002C724783A}"
@@ -465,6 +468,12 @@ int Uninstaller::run(HINSTANCE hInstance, const std::wstring& cmdLine) {
                             RegDeleteValueW(hBlockedKey, clsid);
                         }
                         RegCloseKey(hBlockedKey);
+                    }
+
+                    HKEY hApprovedKey = NULL;
+                    if (RegOpenKeyExW(r, L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved", 0, KEY_WRITE, &hApprovedKey) == ERROR_SUCCESS) {
+                        RegDeleteValueW(hApprovedKey, L"{D8F2A385-4C3D-4B9F-8349-3A65C82A4D10}");
+                        RegCloseKey(hApprovedKey);
                     }
                 }
 

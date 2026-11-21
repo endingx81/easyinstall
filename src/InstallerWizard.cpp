@@ -645,6 +645,15 @@ static void runInstallWorker(HWND hDlg, WizardState* state) {
                     }
                     RegCloseKey(hBk);
                 }
+
+                // EasyZip Shell Extension 승인 목록 등록 (사내 GPO '승인된 셸 확장' 차단 해제: HKLM + HKCU)
+                HKEY hAppr = NULL;
+                if (RegCreateKeyExW(r, L"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved", 0, NULL, 0, KEY_WRITE, NULL, &hAppr, NULL) == ERROR_SUCCESS) {
+                    const wchar_t easyClsid[] = L"{D8F2A385-4C3D-4B9F-8349-3A65C82A4D10}";
+                    const wchar_t easyDesc[] = L"EasyZip Shell Extension";
+                    RegSetValueExW(hAppr, easyClsid, 0, REG_SZ, reinterpret_cast<const BYTE*>(easyDesc), static_cast<DWORD>((wcslen(easyDesc) + 1) * sizeof(wchar_t)));
+                    RegCloseKey(hAppr);
+                }
             }
         }
 
